@@ -1,0 +1,97 @@
+import VideoDisplay from "./video/VideoDisplay";
+import VideoControls from "./video/VideoControls";
+import Participants from "./Participants";
+import { useRef, useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { useHost } from "../context/HostProvider";
+
+const Room = () => {
+  const { sessionId } = useParams();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [videoEnabled, setVideoEnabled] = useState(true);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [isParticipantComp, setIsParticipantComp] = useState(true);
+  const { participants, hostWs } = useHost();
+
+  const getCameraStream = async () => {
+    try {
+      const userMediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      setStream(userMediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = userMediaStream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+    }
+  };
+
+  const toggleVideo = () => {
+    if (stream) {
+      stream.getVideoTracks().forEach((track) => {
+        track.enabled = !videoEnabled;
+      });
+      setVideoEnabled(!videoEnabled);
+    }
+  };
+
+  const toggleAudio = () => {
+    if (stream) {
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = !audioEnabled;
+      });
+      setAudioEnabled(!audioEnabled);
+    }
+  };
+
+  const toggleParticipant = () => {
+    setIsParticipantComp(!isParticipantComp);
+  };
+
+  useEffect(() => {
+    if (hostWs) {
+      
+    }
+  }, [hostWs]);
+
+  useEffect(() => {
+    getCameraStream();
+  }, []);
+
+  return (
+    <div className="min-h-screen p-4 grid gap-4 lg:grid-cols-4">
+      <div
+        className={`flex flex-col justify-center items-center gap-4 border rounded-lg p-4 transition-transform duration-300 ${
+          isParticipantComp ? "lg:col-span-3" : "lg:col-span-4"
+        }`}
+      >
+        {/* VideoDisplay */}
+        <VideoDisplay stream={stream} />
+
+        {/* VideoControls */}
+        <VideoControls
+          toggleVideo={toggleVideo}
+          toggleAudio={toggleAudio}
+          toggleParticipant={toggleParticipant}
+          videoEnabled={videoEnabled}
+          audioEnabled={audioEnabled}
+          sessionId={sessionId || ""}
+        />
+      </div>
+
+      {isParticipantComp && (
+        <aside className="flex lg:flex flex-col gap-4 border rounded-lg p-4 bg-gray-100">
+          <Participants
+            isParticipantComp={isParticipantComp}
+            participants={participants}
+          />
+        </aside>
+      )}
+    </div>
+  );
+};
+
+export default Room;
