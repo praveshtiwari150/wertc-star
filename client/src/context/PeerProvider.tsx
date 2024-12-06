@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMedia } from './StreamProvider';
 
 interface PeerProviderProps {
   children: React.ReactNode;
@@ -24,7 +25,18 @@ export const PeerProvider = ({ children }: PeerProviderProps) => {
   const [peerSocket, setpeerSocket] = useState<WebSocket | null>(null);
   const [pc, setPc] = useState<RTCPeerConnection | null>(null);
   const navigate = useNavigate();
+  const { localStream } = useMedia();
 
+  const sendStream = async (pc: RTCPeerConnection, stream: MediaStream) => {
+    try {
+      if (!stream || !pc) return;
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+    } catch (err) {
+      console.log("Error while sending stream", err);
+    }
+  };
 
   const sendJoinRequest = (name: string, sessionId: string, ws:WebSocket) => {
     setpeerSocket(ws);
@@ -35,39 +47,51 @@ export const PeerProvider = ({ children }: PeerProviderProps) => {
     navigate(`/approval/${sessionId}`)
   }
 
-  const handleParticipantAccepted = (peerId: string) => {
+
+  const handleParticipantAccepted = async (peerId: string, sdp: RTCSessionDescriptionInit) => {
     const pc = new RTCPeerConnection();
     setPc(pc);
     setPeerId(peerId);
     setStatus("accepted");
-  }
 
-  const handleOffer = async (sdp: RTCSessionDescriptionInit) => {
-    if (pc) {
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      peerSocket?.send(JSON.stringify({type: "answer", peerId, sessionId, sdp: answer}))
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        peerSocket?.send(
+          JSON.stringify({
+            type: "ice-candidate",
+            candidate: event.candidate,
+            sessionId,
+            peerId,
+          })
+        );
+      }
+    };
+
+    pc.ontrack = (event) => {
+      console.log("Incoming stream: ", event.streams[0]);
+    };
+
+    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    peerSocket?.send(
+      JSON.stringify({ type: "answer", peerId, sessionId, sdp: answer })
+    );
+
+    if (localStream) {
+      await sendStream(pc, localStream);
+    } else {
+      console.log("Local stream is null, cannot send stream");
     }
   }
 
-  const handleIceCandidate = async (candidate: RTCIceCandidateInit, peerId: string) => {
+  const handleIceCandidate = async (candidate: RTCIceCandidateInit) => {
     if (pc) {
       await pc.addIceCandidate(candidate);
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          peerSocket?.send(
-            JSON.stringify({
-              type: "ice-candidate",
-              candidate: event.candidate,
-              sessionId,
-              peerId,
-            })
-          );
-        }
-      };
+      console.log("Ice candidate added:", candidate);
     }
   }
+
 
   useEffect(() => {
     if (!peerSocket) return;
@@ -75,29 +99,24 @@ export const PeerProvider = ({ children }: PeerProviderProps) => {
     peerSocket.onmessage = (event) => {
       const message = JSON.parse(event.data);
 
-      if (message.type === "invalid-sessionid") {
-        setStatus("invalid");
-        console.log(status);
-      }
+      switch (message.type) {
+        case "invalid-sessionid":
+          setStatus("invalid");
+          break;
 
-      if (message.type === 'participant-added') {
-        const { peerId } = message;
-        handleParticipantAccepted(peerId);
-      }
+        case "participant-added":
+          const {peerId, sdp} = message
+          handleParticipantAccepted(peerId, sdp);
+          break;
 
-      if (message.type === 'participant-rejected') {
-        alert('Host did not add')
-        setStatus('rejected');
-      }
+        case "participant-rejected":
+          setStatus("rejected");
+          break;
 
-      if (message.type === 'offer') {
-        const {sdp}=message;
-        handleOffer(sdp);
-      }
-
-      if (message.type === 'ice-candidate') {
-        const { candidate, peerId } = message;
-        handleIceCandidate(candidate, peerId)
+        case "ice-candidate":
+          const { candidate } = message;
+          handleIceCandidate(candidate);
+          break;
       }
     }
   }, [peerSocket])

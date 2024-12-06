@@ -2,7 +2,6 @@ import React, { useMemo } from "react";
 import { Participant } from "../utils/constants";
 import { FaRegCheckCircle } from "react-icons/fa";
 import { RiCloseCircleLine } from "react-icons/ri";
-import Tooltip from "./Tooltip";
 import { useHost } from "../context/HostProvider";
 
 interface ParticipantProps {

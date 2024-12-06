@@ -30,6 +30,7 @@ const CreateMeeting = () => {
     ws.onclose = () => {
       console.log('create meeting WebSocket connection closed')
     }
+
   };
 
   return (

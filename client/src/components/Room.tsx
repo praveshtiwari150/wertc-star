@@ -40,17 +40,19 @@ const Room = () => {
     setIsVideoTile((prev) => !prev);
   };
 
+  
   useEffect(() => {
-    console.log(participants);
     getLocalStream();
   }, []);
 
   return (
-    <div className="min-h-screen p-4 grid gap-4 lg:grid-cols-4">
+    <div className="max-h-screen bg-charcoal-10 p-4 grid gap-4 lg:grid-cols-4">
       <div
-        className={`flex flex-col justify-center items-center gap-4 border rounded-lg p-4 transition-transform duration-300 ${
-          isParticipantComp ? "lg:col-span-3" : "lg:col-span-4"
-        } ${isVideoTile ? "lg:col-span-2" : ""}`}
+        className={`max-h-screen bg-charcoal-6 flex flex-col justify-center items-center gap-2 rounded-lg p-1 transition-transform duration-300 ${
+          isParticipantComp && "lg:col-span-3"
+        } ${isVideoTile && "lg:col-span-2"} ${
+          !isParticipantComp && !isVideoTile && "lg:col-span-4"
+        }`}
       >
         {/* VideoDisplay */}
         <VideoDisplay stream={localStream} />
@@ -68,14 +70,17 @@ const Room = () => {
       </div>
 
       {isVideoTile && (
-        <aside className="flex flex-col gap-4 border rounded-lg p-4 lg:col-span-2">
-          <VideoTile isVideoTile={isVideoTile} participants={participants} />
-        </aside>
+        <div className="max-h-screen bg-charcoal-6 p-1 rounded-lg  lg:col-span-2">
+          <VideoTile
+            isVideoTile={isVideoTile}
+            participants={participants}
+          />
+        </div>
       )}
 
       {isParticipantComp && (
         <aside
-          className={`flex flex-col gap-4 border rounded-lg p-4 bg-gray-100 ${
+          className={`max-h-screen flex flex-col gap-4 border rounded-lg p-4 bg-gray-100 ${
             isParticipantComp ? "lg:col-span-1" : ""
           }`}
         >

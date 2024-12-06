@@ -24,21 +24,6 @@ const JoinMeeting = () => {
     };
   }
 
-  const handleOffer = async (message: any) => {
-    const pc = new RTCPeerConnection();
-    await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-
-    hostWs?.send(JSON.stringify({type: "answer", sdp:pc.localDescription, name}))
-  }
-
-  const handleIceCandidate = async (message: any) => {
-    const pc = new RTCPeerConnection();
-    await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-    navigate(`/room/${sessionId}`);
-  };
   return (
     <div className="flex flex-col h-[250px] border border-cobalt-4 p-8 rounded-xl gap-4 justify-center items-center">
       <form

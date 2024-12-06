@@ -6,7 +6,7 @@ export interface Participant {
     status: 'accepted' | 'pending';
 }
 
-export const participants: Participant[] = [
+export const dummyParticipants: Participant[] = [
     { peerId: '1', peerName: 'Alice', status: 'accepted' },
     { peerId: '2', peerName: 'Bob', status: 'pending' },
     { peerId: '3', peerName: 'Charlie', status: 'accepted' },

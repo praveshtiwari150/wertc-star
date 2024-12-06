@@ -1,5 +1,11 @@
-const Peer = () => {
-  return <div>Peer</div>;
-};
+import React from 'react'
 
-export default Peer;
+const Peer = () => {
+  return (
+    <div>
+      
+    </div>
+  )
+}
+
+export default Peer

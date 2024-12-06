@@ -15,7 +15,7 @@ const VideoDisplay = ({ stream }: VideoDisplayProps) => {
 
   return (
     <div>
-      <video ref={videoRef} muted autoPlay playsInline />
+      <video className="w-full h-[80px] md:h-[220px] lg:h-[400px] rounded-lg" ref={videoRef} muted autoPlay playsInline />
     </div>
   );
 };

@@ -57,11 +57,7 @@ wss.on('connection', (ws) => {
             case 'participant-rejected':
                 notifyParticipantandRemovePeer(ws, message);
                 break;
-            
-            case 'offer': 
-                const { peerId, sessionId, sdp } = message;
-                sendOfferToParticipant(ws, message);
-                break;
+
                 
             case 'ice-candidate':
                 shareIceCandidate(ws, message);
@@ -117,14 +113,18 @@ function handleJoinMeeting(ws: WebSocket, message: any) {
 
     let peersList = peers.get(sessionId) || [];
     const peerId = uuid();
+    console.log("peerId created ", peerId);
     peersList.push({ peerId, peerName, ws, status: 'pending' });
+    console.log('peerList');
+    console.log(peersList);
     peers.set(sessionId, peersList);
+    console.log('Peers map: ')
     console.log(peers);
     sessionHosts.get(sessionId)?.send(JSON.stringify({ type: 'join-request',peerId, peerName }));
 }
 
 function notifyParticipantandUpdateStatus(ws: WebSocket, message: any) {
-    const { peerId, sessionId } = message;
+    const { peerId, sessionId, sdp } = message;
     const peersList = peers.get(sessionId);
         if (peersList) {
             const peer = peersList.find(p => p.peerId === peerId);
@@ -133,8 +133,7 @@ function notifyParticipantandUpdateStatus(ws: WebSocket, message: any) {
                 console.log(`Peer ${peer.peerName} has been accepted into session ${sessionId}`);
                 // console.log(peers); //only for debugging
                 console.log(`Host has allowed ${peer?.peerName} to ${sessionId}: `)
-                console.log(peers);
-                peer.ws.send(JSON.stringify({ type: 'participant-added', peerId }));
+                peer.ws.send(JSON.stringify({ type: 'participant-added', peerId, sdp }));
             }
         }
 }
@@ -148,7 +147,6 @@ function notifyParticipantandRemovePeer(ws: WebSocket, message: any) {
             const updatedPeersList = peerList?.filter(p => p.peerId !== peerId);
             peers.set(sessionId, updatedPeersList);
             console.log(`Host has not allowed ${peer?.peerName} to ${sessionId}: `)
-            console.log(peers);
             peer?.ws.send(JSON.stringify({ type: 'participant-rejected' }));
         }
     
@@ -190,6 +188,7 @@ function sendAnswer(ws: WebSocket, message: any) {
         const peer = peerList.find(p => p.peerId === peerId);
 
         if (ws === peer?.ws) {
+            console.log(`${peer.peerName} is sending answer to host`)
             const host = sessionHosts.get(sessionId);
             host?.send(JSON.stringify({ type, peerId, sessionId, sdp }));
         }
