@@ -50,77 +50,80 @@ export const PeerProvider = ({ children }: PeerProviderProps) => {
   };
 
   const handleParticipantAdded = async (message: any) => {
-    console.log("Participant accepted got to know");
+    console.log("1 Participant accepted got to know");
     const { peerId, sdp } = message;
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        {
-          urls: [
-            "stun:stun.l.google.com:19302",
-            "stun:global.stun.twilio.com:3478",
-          ],
-        },
-      ],
-    });
+    const pc = new RTCPeerConnection();
     setPc(pc);
     setPeerId(peerId);
     setStatus("accepted");
 
-    pc.onicecandidate = event => {
-      if (event.candidate) {
-        console.log("Sending ice candidate to the host");
-        peerSocket?.send(JSON.stringify({
-          type: 'ice-candidate',
-          peerId,
-          sessionId,
-          candidate: event.candidate
-        }));
-      }
-      else {
-        console.log("Ice gathering complete");
-      }
-    };
-
-    pc.ontrack = event => {
-      console.log("Receiving host streram");
-      setHostStream(event.streams[0]);
-    };
-
     try {
       console.log("2 Storing the offer");
       await pc.setRemoteDescription(
-        new RTCSessionDescription(sdp)
+        new RTCSessionDescription({ type: "offer", sdp })
       );
-      console.log("3 Creating Answer");
+      console.log("3 Host offer", pc.remoteDescription);
+      console.log("4 Creating Answer");
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      console.log("4 Sending answer to the host");
+      console.log("5 Sending answer to the host");
       peerSocket?.send(
         JSON.stringify({
           type: "answer",
           sessionId,
           peerId,
-          sdp: answer
+          sdp: pc.localDescription?.sdp,
         })
       );
-
-      localStream?.getTracks().forEach(track => {
-        console.log("Sending particiapnt stream");
-        pc.addTrack(track, localStream);
-      })
     } catch (err) {
       console.error("Error during the participant add process:", err);
     }
   };
 
-  const handleIceCandidate = async (message: any) => {
+  const handleIceCandidate = (message: any) => {
     console.log("10 Host sent an ICE candidate");
     const { candidate } = message;
     console.log(candidate);
-    if (pc) {
-      await pc.addIceCandidate(new RTCIceCandidate(candidate));
-    }
+    pc?.addIceCandidate(new RTCIceCandidate(candidate))
+      .then(() => {
+        console.log("ICE candidate added successfully");
+      })
+      .catch((error) => {
+        console.error("Error adding received ICE candidate", error);
+      });
   };
+
+  useEffect(() => {
+
+    if (pc) {
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log("6 Sending ICE candidate to the host");
+          console.log(event.candidate);
+          peerSocket?.send(
+            JSON.stringify({
+              type: "ice-candidate",
+              sessionId,
+              peerId,
+              candidate: event.candidate,
+            })
+          );
+        } else {
+          console.log("7 ICE gathering complete");
+        }
+      };
+
+      pc.ontrack = (event) => {
+        console.log("8 Receiving host stream");
+        setHostStream(event.streams[0]);
+      };
+
+      localStream?.getTracks().forEach((track) => {
+        console.log("9 Sending participant stream");
+        pc.addTrack(track, localStream);
+      });
+    }
+  }, [pc]);
 
   useEffect(() => {
     if (!peerSocket) return;

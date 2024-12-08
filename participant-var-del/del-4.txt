@@ -1,6 +1,5 @@
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import { useMedia } from "./StreamProvider";
-import { SiOcaml } from "react-icons/si";
 
 interface HostProviderProps {
   children: React.ReactNode;
@@ -64,75 +63,69 @@ export const HostProvider = ({ children }: HostProviderProps) => {
   };
 
   const acceptParticipant = async (peerId: string) => {
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        {
-          urls: [
-            "stun:stun.l.google.com:19302",
-            "stun:global.stun.twilio.com:3478",
-          ],
-        },
-      ],
-    });
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log("Sending ice-candidate");
-        hostWs?.send(
-          JSON.stringify({
-            type: "ice-candidate",
-            peerId,
-            sessionId,
-            candidate: event.candidate,
-          })
-        );
-      } else {
-        console.log("Ice gathering complete");
-      }
-    };
-
-    pc.ontrack = (event) => {
-      console.log("Receiving particiapnt stream");
-      setParticipants((prevParticipants) =>
-        prevParticipants.map((p) =>
-          p.peerId === peerId ? { ...p, stream: event.streams[0] } : p
-        )
-      );
-    };
-
-    const participant = participants.find(p => p.peerId === peerId);
+    const participant = participants.find((p) => p.peerId === peerId);
 
     if (participant) {
-      console.log("Participant exists");
       try {
+        const pc = new RTCPeerConnection();
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        console.log("1 Sending participant accepted and SDP to participant");
+        console.log(pc.localDescription);
+        hostWs?.send(
+          JSON.stringify({
+            type: "participant-added",
+            peerId,
+            sessionId,
+            sdp: offer.sdp,
+          })
+        );
+
+        pc.onicecandidate = (event) => {
+          console.log(event);
+          if (event.candidate) {
+            console.log("Generated Ice candidate")
+            console.log("2 Sending ICE candidate to participant");
+            hostWs?.send(
+              JSON.stringify({
+                type: "ice-candidate",
+                peerId,
+                sessionId,
+                candidate: event.candidate,
+              })
+            );
+          } else {
+            console.log("2 ICE gathering complete");
+          }
+        };
+
         if (localStream) {
+          console.log("3 Adding local stream tracks to peer connection");
           localStream.getTracks().forEach((track) => {
             pc.addTrack(track, localStream);
           });
         }
 
-        const offer = await pc.createOffer();
-        console.log("offer created and stored in the local description");
-        await pc.setLocalDescription(offer);
-        console.log("Sending offer to the participant");
-        hostWs?.send(JSON.stringify({
-          type: "participant-added",
-          peerId,
-          sessionId,
-          sdp:offer
-        }))
-
         setParticipants((prevParticipants) =>
-          prevParticipants.map((p) =>
-            p.peerId === peerId ? { ...p, status: "accepted", pc } : p
+          prevParticipants.map((participant) =>
+            participant.peerId === peerId
+              ? { ...participant, status: "accepted", pc }
+              : participant
           )
         );
 
-        console.log("Collecting ice candidate");
-      }
-
-      catch (err) {
-        console.log(err);
+        pc.ontrack = (event) => {
+          console.log("4 Receiving participant stream");
+          setParticipants((prevParticipants) =>
+            prevParticipants.map((participant) =>
+              participant.peerId === peerId
+                ? { ...participant, stream: event.streams[0] }
+                : participant
+            )
+          );
+        };
+      } catch (err) {
+        console.error("Error in acceptParticipant:", err);
       }
     }
   };
@@ -146,44 +139,6 @@ export const HostProvider = ({ children }: HostProviderProps) => {
       JSON.stringify({ type: "participant-rejected", peerId, sessionId })
     );
   };
-
-  const handleAnswer = async (message: any) => {
-    const { peerId, sdp } = message;
-    const participant = participants.find(p => p.peerId === peerId);
-    if (participant) {
-      console.log("Participant found")
-      const { pc } = participant;
-      if (pc) {
-        console.log("Participant has pc");
-        console.log(pc);
-        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      }
-
-      else {
-        console.log("pc not found for the participant")
-      }
-    }
-    else {
-      console.log("Participant not found");
-      console.log("particiapnts array size is: ", participants.length);
-    }
-  }
-
-  const handleIceCandidate = async (message: any) => {
-    const { peerId, candidate } = message;
-    const participant = participants.find(p => p.peerId === peerId);
-    if (participant) {
-      const {pc} = participant
-      if (pc && candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-    }
-
-    else {
-      console.log("Participant not found");
-      console.log("Participant array size: ", participants.length);
-    }
-  }
 
   useEffect(() => {
     if (!hostWs) return;
@@ -203,14 +158,42 @@ export const HostProvider = ({ children }: HostProviderProps) => {
           handleParticipantJoinRequest(peerId, peerName);
           break;
         }
-        case "answer":
-          handleAnswer(message);
+        case "answer": {
+          console.log("6 Host received answer from participant:", message.sdp);
+          const { peerId, sdp } = message;
+          const participant = participants.find((p) => p.peerId === peerId);
+          if (participant && participant.pc) {
+            participant.pc.setRemoteDescription(
+              new RTCSessionDescription({ type: "answer", sdp })
+            );
+          } else {
+            console.error("Participant or PeerConnection not found");
+          }
           break;
-
-        case "ice-candidate":
-          handleIceCandidate(message)
+        }
+        case "ice-candidate": {
+          console.log(
+            "7 Host received ICE candidate from participant:",
+            message.candidate
+          );
+          const { peerId, candidate } = message;
+          const participant = participants.find((p) => p.peerId === peerId);
+          if (participant && participant.pc) {
+            participant.pc
+              .addIceCandidate(new RTCIceCandidate(candidate))
+              .then(() => {
+                console.log("ICE candidate added successfully");
+              })
+              .catch((error) => {
+                console.error("Error adding received ICE candidate", error);
+              });
+          } else {
+            console.error(
+              "Participant or PeerConnection not found for ICE candidate"
+            );
+          }
           break;
-
+        }
         case "participant-rejected": {
           const { peerId } = message;
           console.log("Participant rejected:", peerId);

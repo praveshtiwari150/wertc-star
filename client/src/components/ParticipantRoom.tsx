@@ -3,10 +3,12 @@ import VideoDisplay from './video/VideoDisplay';
 import VideoControls from './video/VideoControls';
 import { useMedia } from '../context/StreamProvider';
 import { useParams } from 'react-router-dom';
+import { usePeer } from '../context/PeerProvider';
 
 const ParticipantRoom = () => {
   const { sessionId } = useParams();
   const {localStream, toggleVideo, toggleAudio, audioEnabled, videoEnabled, getLocalStream}= useMedia()
+  const {peerName, hostStream} = usePeer();
 
   useEffect(() => {
     getLocalStream();
@@ -22,7 +24,16 @@ const ParticipantRoom = () => {
         className={`flex flex-col justify-center items-center gap-4 border rounded-lg p-4 transition-transform duration-300 ${"lg:col-span-4"}`}
       >
         {/* VideoDisplay */}
-        <VideoDisplay stream={localStream} />
+        <div className="">
+          <div>
+            <div>{peerName}</div>
+            <VideoDisplay stream={localStream} />
+          </div>
+          <div>
+            <div>Host</div>
+            <VideoDisplay stream={hostStream}/>
+          </div>
+        </div>
 
         {/* VideoControls */}
         <VideoControls

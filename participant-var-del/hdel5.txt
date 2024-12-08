@@ -64,77 +64,27 @@ export const HostProvider = ({ children }: HostProviderProps) => {
   };
 
   const acceptParticipant = async (peerId: string) => {
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        {
-          urls: [
-            "stun:stun.l.google.com:19302",
-            "stun:global.stun.twilio.com:3478",
-          ],
-        },
-      ],
-    });
+    const pc = new RTCPeerConnection();
 
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log("Sending ice-candidate");
-        hostWs?.send(
-          JSON.stringify({
-            type: "ice-candidate",
-            peerId,
-            sessionId,
-            candidate: event.candidate,
-          })
-        );
-      } else {
-        console.log("Ice gathering complete");
-      }
-    };
+    console.log("Participant accepted");
+    setParticipants((prevParticipants) => (
+      prevParticipants.map(p => (
+        p.peerId === peerId ? { ...p, status: 'accepted', pc } : p
+      ))
+    ));
 
-    pc.ontrack = (event) => {
-      console.log("Receiving particiapnt stream");
-      setParticipants((prevParticipants) =>
-        prevParticipants.map((p) =>
-          p.peerId === peerId ? { ...p, stream: event.streams[0] } : p
-        )
-      );
-    };
-
-    const participant = participants.find(p => p.peerId === peerId);
-
-    if (participant) {
-      console.log("Participant exists");
-      try {
-        if (localStream) {
-          localStream.getTracks().forEach((track) => {
-            pc.addTrack(track, localStream);
-          });
-        }
-
-        const offer = await pc.createOffer();
-        console.log("offer created and stored in the local description");
-        await pc.setLocalDescription(offer);
-        console.log("Sending offer to the participant");
-        hostWs?.send(JSON.stringify({
-          type: "participant-added",
-          peerId,
-          sessionId,
-          sdp:offer
-        }))
-
-        setParticipants((prevParticipants) =>
-          prevParticipants.map((p) =>
-            p.peerId === peerId ? { ...p, status: "accepted", pc } : p
-          )
-        );
-
-        console.log("Collecting ice candidate");
-      }
-
-      catch (err) {
-        console.log(err);
-      }
-    }
+    console.log("offer created and stored in localDescription");
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    console.log("sending offer to the host")
+    hostWs?.send(
+      JSON.stringify({
+        type: "participant-added",
+        peerId,
+        sessionId,
+        sdp: offer,
+      })
+    );
   };
 
   const removeAndUpdateParticipant = (peerId: string) => {
@@ -157,6 +107,19 @@ export const HostProvider = ({ children }: HostProviderProps) => {
         console.log("Participant has pc");
         console.log(pc);
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        console.log("Collecting ice-candidate");
+
+        pc.onicecandidate = event => {
+          if (event.candidate) {
+            console.log("Sending Ice candidate to the host");
+            hostWs?.send(JSON.stringify({
+              type: "ice-candidate",
+              peerId,
+              sessionId,
+              candidate: event.candidate
+            }))
+          }
+        }
       }
 
       else {
@@ -175,7 +138,7 @@ export const HostProvider = ({ children }: HostProviderProps) => {
     if (participant) {
       const {pc} = participant
       if (pc && candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
       }
     }
 

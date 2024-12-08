@@ -15,7 +15,13 @@ const VideoDisplay = ({ stream }: VideoDisplayProps) => {
 
   return (
     <div>
-      <video className="w-full h-[80px] md:h-[220px] lg:h-[400px] rounded-lg" ref={videoRef} muted autoPlay playsInline />
+      {
+        stream ? (
+          <video className="w-full h-[80px] md:h-[220px] lg:h-[400px] rounded-lg" ref={videoRef} muted autoPlay playsInline />
+        ) : (
+            <div>Cannot find host stream</div>
+        )
+      }
     </div>
   );
 };

@@ -10,7 +10,7 @@ interface ParticipantProps {
 }
 
 const Participants = ({ participants, isParticipantComp }: ParticipantProps) => {
-  const {acceptAndUpdateParticipant, removeAndUpdateParticipant} = useHost()
+  const {acceptParticipant, removeAndUpdateParticipant} = useHost()
   const accepted = useMemo(() => {
     return participants.filter((p) => p.status === "accepted");
   }, [participants]);
@@ -38,7 +38,7 @@ const Participants = ({ participants, isParticipantComp }: ParticipantProps) => 
               <div className="flex gap-4">
                 <button
                   className="text-xl rounded-full text-cobalt-4 hover:text-green-500"
-                  onClick={() => acceptAndUpdateParticipant(participant.peerId)}
+                  onClick={() => acceptParticipant(participant.peerId)}
                 >
                   <FaRegCheckCircle />
                 </button>

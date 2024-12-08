@@ -8,20 +8,12 @@ const JoinMeeting = () => {
   const [name, setName] = useState("");
   const [sessionId, setSessionId] = useState("");
   const { sendJoinRequest } = usePeer();
-  const { hostWs } = useHost();
   const navigate = useNavigate();
 
   const handleJoinMeeting = (event: any) => {
     event.preventDefault();
     const ws = new WebSocket(SIGNALING_SERVER);
-    
-    ws.onopen = () => {
       sendJoinRequest(name, sessionId, ws);
-    }
-
-    ws.onclose = () => {
-      console.log("WebSocket connection closed");
-    };
   }
 
   return (

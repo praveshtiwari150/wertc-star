@@ -115,16 +115,14 @@ function handleJoinMeeting(ws: WebSocket, message: any) {
     const peerId = uuid();
     console.log("peerId created ", peerId);
     peersList.push({ peerId, peerName, ws, status: 'pending' });
-    console.log('peerList');
-    console.log(peersList);
     peers.set(sessionId, peersList);
-    console.log('Peers map: ')
     console.log(peers);
     sessionHosts.get(sessionId)?.send(JSON.stringify({ type: 'join-request',peerId, peerName }));
 }
 
 function notifyParticipantandUpdateStatus(ws: WebSocket, message: any) {
     const { peerId, sessionId, sdp } = message;
+    console.log("------------------------------------------participant-added---------------------")
     const peersList = peers.get(sessionId);
         if (peersList) {
             const peer = peersList.find(p => p.peerId === peerId);
@@ -132,10 +130,12 @@ function notifyParticipantandUpdateStatus(ws: WebSocket, message: any) {
                 peer.status = 'accepted';
                 console.log(`Peer ${peer.peerName} has been accepted into session ${sessionId}`);
                 // console.log(peers); //only for debugging
-                console.log(`Host has allowed ${peer?.peerName} to ${sessionId}: `)
                 peer.ws.send(JSON.stringify({ type: 'participant-added', peerId, sdp }));
+                console.log("Informed participant that the request has been accepted");
             }
-        }
+    }
+    
+    console.log("--------------------------------------------participant-added-ends-----------------")
 }
 
 function notifyParticipantandRemovePeer(ws: WebSocket, message: any) {
@@ -165,18 +165,23 @@ function sendOfferToParticipant(ws: WebSocket, message: any) {
 function shareIceCandidate(ws: WebSocket, message: any) {
     const { type, candidate, sessionId, peerId } = message;
 
+    console.log("-----------------------------sharing-icecandidate--------------------------")
     if (ws === sessionHosts.get(sessionId)) {
         const peerList = peers.get(sessionId);
         if (peerList) {
+            console.log("Host sent the ice-candidate to the peer")
             const peer = peerList.find(p => p.peerId === peerId);
             peer?.ws.send(JSON.stringify({ type, candidate, peerId }));
         }
     }
 
     else {
+        console.log("Peer sent ice-candidate to the host");
         const host = sessionHosts.get(sessionId);
         host?.send(JSON.stringify({type:'ice-candidate', candidate, peerId}))
     }
+
+    console.log("------------------------ice-candidate-------------------------")
 
 }
 

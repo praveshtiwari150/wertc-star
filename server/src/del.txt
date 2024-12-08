@@ -31,11 +31,6 @@ interface HostContextType {
   removeAndUpdateParticipant: (peerId: string) => void;
 }
 
-let joinCount = 0;
-let answerCount = 0;
-let iceCount = 0;
-let onIceCount = 0;
-
 const HostContext = React.createContext<HostContextType | null>(null);
 
 export const HostProvider = ({ children }: HostProviderProps) => {
@@ -58,7 +53,6 @@ export const HostProvider = ({ children }: HostProviderProps) => {
     setHostName(hostName);
     setHostEmail(hostEmail);
     setHostWs(ws);
-    console.log("Host websocket after setting: ", ws);
   };
 
   const sendStream = async (pc: RTCPeerConnection, stream: MediaStream) => {
@@ -73,30 +67,26 @@ export const HostProvider = ({ children }: HostProviderProps) => {
   };
 
   const addParticipant = (peerId: string, peerName: string) => {
-    console.log("Peer Id in add participant ", peerId)
     setParticipants((prev) => [
       ...prev,
-      { peerId, peerName, status: "pending",pc:null, stream:null },
+      { peerId, peerName, status: "pending", pc: null, stream: null },
     ]);
-    
   };
+
 
   const handleIncomingStream = (peerId: string, stream: MediaStream) => {
     setParticipants((prevParticipants) =>
       prevParticipants.map((person) =>
-        person.peerId === peerId
-          ? { ...person, stream: stream }
-          : person
+        person.peerId === peerId ? { ...person, stream: stream } : person
       )
     );
-  }
+  };
 
   const acceptAndUpdateParticipant = async (peerId: string) => {
     const pc = new RTCPeerConnection();
 
     pc.onicecandidate = (event) => {
-      console.log('onIce count: ', onIceCount++);
-      console.log('Ice candidate event', event);
+      console.log("Ice candidate event", event);
       if (event.candidate) {
         if (hostWs) {
           console.log("Host ws in acceptAndUpdateParticipant: ", hostWs);
@@ -108,54 +98,53 @@ export const HostProvider = ({ children }: HostProviderProps) => {
               peerId,
             })
           );
+        } else {
+          console.log("Websocket is null, cannot send ice candidate");
         }
-        else {
-          console.log("Websocket is null, cannot send ice candidate")
-        }
+      } else {
+        console.log("Cannot find event");
       }
-
-      else {
-        console.log('Cannot find event')
-      }
-    }
+    };
 
     pc.ontrack = (event) => {
       console.log("Track");
       handleIncomingStream(peerId, event.streams[0]);
-    }
+    };
 
     if (localStream) {
-      await sendStream(pc, localStream)
-    }
-
-    else {
-      console.warn("Local stream is null, cannot send stream.")
+      await sendStream(pc, localStream);
+    } else {
+      console.warn("Local stream is null, cannot send stream.");
     }
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-  
-    setParticipants((previousParticipants) => 
-      previousParticipants.map((person) => 
-        person.peerId === peerId 
+
+    setParticipants((previousParticipants) =>
+      previousParticipants.map((person) =>
+        person.peerId === peerId
           ? { ...person, status: "accepted", pc }
           : person
       )
-    )
-    hostWs?.send(
-      JSON.stringify({ type: "participant-added", peerId, sessionId, sdp:offer})
     );
-
+    hostWs?.send(
+      JSON.stringify({
+        type: "participant-added",
+        peerId,
+        sessionId,
+        sdp: offer,
+      })
+    );
   };
 
-
   const removeAndUpdateParticipant = (peerId: string) => {
-    setParticipants((prevParticipants) =>  prevParticipants.filter((p) => p.peerId !== peerId));
+    setParticipants((prevParticipants) =>
+      prevParticipants.filter((p) => p.peerId !== peerId)
+    );
 
     hostWs?.send(
       JSON.stringify({ type: "participant-rejected", peerId, sessionId })
     );
   };
-
 
   const handleParticipantAnswer = async (message: any) => {
     const { peerId, sdp } = message;
@@ -171,19 +160,16 @@ export const HostProvider = ({ children }: HostProviderProps) => {
     const { candidate, peerId } = message;
 
     console.log("inside handleParticipantsIceCandidate");
-    console.log(participants)
+    console.log(participants);
     const peer = participants.find((p) => p.peerId === peerId);
     if (peer && peer.pc) {
       console.log(`Adding Ice Candidate for peer: ${peerId}`);
       await peer.pc.addIceCandidate(new RTCIceCandidate(candidate));
       console.log(`Ice candidate added for ${peerId}`);
-    }
-
-    else {
-      console.log(`PeerConnection not found for peer ${peerId}`)
+    } else {
+      console.log(`PeerConnection not found for peer ${peerId}`);
     }
   };
-
 
   useEffect(() => {
     if (!hostWs) return;
@@ -194,34 +180,40 @@ export const HostProvider = ({ children }: HostProviderProps) => {
 
     hostWs.onmessage = (event) => {
       const message = JSON.parse(event.data);
+
       switch (message.type) {
         case "join-request": {
-          alert(`Join count: ${joinCount++}`);
           const { peerId, peerName } = message;
-          console.log(`Peer ${peerName} trying to join ${peerId}`)
           addParticipant(peerId, peerName);
-          console.log("Participants inside join request")
+
+          console.log(peerId, peerName);
+          console.log("ice-candidate:host", hostName);
+          console.log("sessionId,", sessionId);
+          console.log("Before handle ice-candidate function :");
           console.log(participants);
-          console.log("host:", hostName)
+          console.log("Pravesh, ", hostWs);
+
           break;
         }
 
         case "answer":
-          alert(`Answer from a peer: ${answerCount++}`);
           handleParticipantAnswer(message);
           break;
 
         case "ice-candidate":
-          alert(`Ice count: ${iceCount++}`);
           console.log("ice-candidate:host", hostName);
           console.log("sessionId,", sessionId);
-          console.log('Before handle ice-candidate function :');
+          console.log("Before handle ice-candidate function :");
           console.log(participants);
           handleParticipantIceCandidate(message);
           break;
 
         default:
           console.warn("Unhandled message type:", message.type);
+      }
+
+      return () => {
+        hostWs.close();
       }
     };
   }, [hostWs]);
