@@ -1,8 +1,0 @@
-1.)Host creates a meeting
-2)Participant make request to join meeting using session id to host
-3)Host accepts the participant creates a pc stores in localdescription and sends the offer to the participant
-4)Participant gets the offer creates a new pc stores the offer in the remote description and sends the answer to the host
-5)Host receives the answer stores the answer in the remote description and sends ice-candidate to the participant
-6)Participant receives the ice canddidate sent by the host and adds the host ice-candidate and creates and sends its ice-candidate to the host
-7)Host receives the participant ice-candidate and adds it  to pc
-8)Connection is established 

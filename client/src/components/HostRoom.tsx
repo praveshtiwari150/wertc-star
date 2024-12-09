@@ -7,7 +7,7 @@ import { useParams } from "react-router-dom";
 import { useHost } from "../context/HostProvider";
 import { useMedia } from "../context/StreamProvider";
 
-const Room = () => {
+const HostRoom = () => {
   const { sessionId } = useParams();
   const {
     localStream,
@@ -94,4 +94,4 @@ const Room = () => {
   );
 };
 
-export default Room;
+export default HostRoom;

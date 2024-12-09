@@ -64,16 +64,7 @@ export const HostProvider = ({ children }: HostProviderProps) => {
   };
 
   const acceptParticipant = async (peerId: string) => {
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        {
-          urls: [
-            "stun:stun.l.google.com:19302",
-            "stun:global.stun.twilio.com:3478",
-          ],
-        },
-      ],
-    });
+    const pc = new RTCPeerConnection();
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {

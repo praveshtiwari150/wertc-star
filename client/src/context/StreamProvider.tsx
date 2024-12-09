@@ -1,9 +1,7 @@
 import React, {
   createContext,
   useContext,
-  useRef,
   useState,
-  useEffect,
 } from "react";
 
 interface MediaProviderProps {

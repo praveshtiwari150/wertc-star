@@ -52,16 +52,7 @@ export const PeerProvider = ({ children }: PeerProviderProps) => {
   const handleParticipantAdded = async (message: any) => {
     console.log("Participant accepted got to know");
     const { peerId, sdp } = message;
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        {
-          urls: [
-            "stun:stun.l.google.com:19302",
-            "stun:global.stun.twilio.com:3478",
-          ],
-        },
-      ],
-    });
+    const pc = new RTCPeerConnection();
     setPc(pc);
     setPeerId(peerId);
     setStatus("accepted");
@@ -104,10 +95,17 @@ export const PeerProvider = ({ children }: PeerProviderProps) => {
         })
       );
 
-      localStream?.getTracks().forEach(track => {
-        console.log("Sending particiapnt stream");
-        pc.addTrack(track, localStream);
-      })
+      if (localStream) {
+        console.log("Sending particiapnt stream to the host");
+        localStream.getTracks().forEach((track) => {
+          pc.addTrack(track, localStream);
+        });
+      }
+
+      if (!localStream) {
+        console.log("Localstream not found");
+        console.log(localStream);
+      }
     } catch (err) {
       console.error("Error during the participant add process:", err);
     }

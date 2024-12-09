@@ -19,7 +19,7 @@ const VideoDisplay = ({ stream }: VideoDisplayProps) => {
         stream ? (
           <video className="w-full h-[80px] md:h-[220px] lg:h-[400px] rounded-lg" ref={videoRef} muted autoPlay playsInline />
         ) : (
-            <div>Cannot find host stream</div>
+            <div>Cannot find stream</div>
         )
       }
     </div>
